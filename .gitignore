@@ -19,8 +19,7 @@ dataset/
 # Jupyter notebooks checkpoints
 .ipynb_checkpoints/
 
-# Model files - large files excluded, small model included for deployment
-models/resnet50_best.h5
+# Model files - large files use Git LFS, small model committed directly
 models/resnet50_transfer.h5
 models/vgg16_best.h5
 models/vgg16_transfer.h5
