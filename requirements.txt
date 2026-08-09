@@ -1,11 +1,11 @@
-# Web framework — let pip choose compatible versions
+# Web framework
 fastapi
 uvicorn[standard]
 python-multipart
 
-# ML — CPU-only TF 2.15 (Keras 2.x, no version conflicts)
-tensorflow-cpu==2.15.0
-numpy<1.25
+# ML - no version pin, installs latest (matches local TF 2.21 used to save the model)
+tensorflow-cpu
+numpy
 h5py
 
 # Image processing
