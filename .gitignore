@@ -19,11 +19,10 @@ dataset/
 # Jupyter notebooks checkpoints
 .ipynb_checkpoints/
 
-# Model files - large files use Git LFS, small model committed directly
+# Model files - large files use Git LFS, small .keras model committed directly
 models/resnet50_transfer.h5
 models/vgg16_best.h5
 models/vgg16_transfer.h5
-models/*.keras
 models/*.pkl
 
 # Evaluation output images

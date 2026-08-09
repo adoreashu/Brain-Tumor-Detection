@@ -23,8 +23,10 @@ CLASS_LABELS = ["glioma", "meningioma", "notumor", "pituitary"]
 IMAGE_SIZE = (224, 224)
 
 # Always use ResNet50 — best accuracy (86.7%)
+# .keras format is version-agnostic and loads on any modern TF
 MODEL_PREFERENCE = [
-    "resnet50_best.h5",
+    "resnet50_best.keras",   # Portable format — preferred
+    "resnet50_best.h5",      # Legacy fallback
     "resnet50_transfer.h5",
 ]
 
