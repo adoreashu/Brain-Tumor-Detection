@@ -1,0 +1,47 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environment variables
+.env
+.env.local
+
+# Dataset (too large for GitHub)
+dataset/
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Model files (large binary files - download/train separately)
+models/*.h5
+models/*.keras
+models/*.pkl
+
+# Evaluation output images
+evaluation/*.png
+
+# Node.js
+app/frontend/node_modules/
+app/frontend/dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Logs
+*.log
