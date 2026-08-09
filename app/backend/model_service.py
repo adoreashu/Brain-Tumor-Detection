@@ -70,7 +70,17 @@ class ModelService:
             return
 
         logger.info("Loading model from: %s", model_path)
-        self.model = tf.keras.models.load_model(str(model_path))
+        try:
+            self.model = tf.keras.models.load_model(
+                str(model_path), compile=False
+            )
+        except Exception as load_err:
+            logger.warning("Standard load failed (%s), trying legacy loader...", load_err)
+            # Fallback: try loading with custom_object_scope for older models
+            with tf.keras.utils.custom_object_scope({}):
+                self.model = tf.keras.models.load_model(
+                    str(model_path), compile=False
+                )
         self.model_name = model_path.stem
         self.input_shape = tuple(self.model.input_shape[1:])
         logger.info(
