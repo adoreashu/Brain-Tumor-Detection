@@ -1,8 +1,8 @@
 """
-Brain Tumor Detection — Model Inference Service
+Brain Tumor Detection — Model Inference Service (ONNX Runtime Version)
 
-Handles model loading, image preprocessing, prediction, and Grad-CAM generation.
-Designed as a singleton service loaded once at application startup.
+Handles model loading, image preprocessing, prediction, and Grad-CAM generation using ONNX Runtime.
+Eliminates TensorFlow dependencies for extremely fast and robust production deployments.
 """
 
 import base64
@@ -13,6 +13,8 @@ from typing import Optional
 
 import numpy as np
 from PIL import Image
+import cv2
+import onnxruntime as ort
 
 logger = logging.getLogger(__name__)
 
@@ -22,75 +24,82 @@ logger = logging.getLogger(__name__)
 CLASS_LABELS = ["glioma", "meningioma", "notumor", "pituitary"]
 IMAGE_SIZE = (224, 224)
 
-# Always use ResNet50 — best accuracy (86.7%)
-# .keras format is version-agnostic and loads on any modern TF
+# We prefer ONNX format for deployment
 MODEL_PREFERENCE = [
-    "resnet50_best.keras",   # Portable format — preferred
-    "resnet50_best.h5",      # Legacy fallback
-    "resnet50_transfer.h5",
+    "resnet50_best.onnx",
 ]
 
 
 class ModelService:
     """
-    Encapsulates all ML inference logic:
+    Encapsulates all ML inference logic using ONNX Runtime:
     - Model loading with fallback discovery
     - Image preprocessing
     - Prediction with probabilities
-    - Grad-CAM heatmap generation
+    - Custom numpy-based Grad-CAM heatmap generation
     """
 
     def __init__(self, model_dir: Path) -> None:
         self.model_dir = model_dir
-        self.model = None
+        self.model = None  # Holds the ort.InferenceSession
         self.model_name: Optional[str] = None
         self.input_shape: Optional[tuple] = None
         self.class_labels = CLASS_LABELS
+        self.weights = None  # Loaded dense layer weights for Grad-CAM numpy backprop
 
     # ------------------------------------------------------------------
     # Model loading
     # ------------------------------------------------------------------
     def load_model(self) -> None:
         """
-        Load the best available trained model from the models directory.
-        Tries models in preference order; falls back to any .h5/.keras file.
+        Load the best available trained ONNX model from the models directory.
         """
-        try:
-            import tensorflow as tf  # lazy import to keep startup fast if not needed
-        except ImportError as exc:
-            logger.error("TensorFlow is not installed. Cannot load model.")
-            raise RuntimeError("TensorFlow is required for model inference.") from exc
-
         model_path = self._find_best_model()
 
         if model_path is None:
             logger.warning(
-                "⚠️  No trained model found in '%s'. "
+                "⚠️  No trained ONNX model found in '%s'. "
                 "The API will start but predictions will fail until a model is trained.",
                 self.model_dir,
             )
             return
 
-        logger.info("Loading model from: %s", model_path)
+        logger.info("Loading ONNX model from: %s", model_path)
         try:
-            self.model = tf.keras.models.load_model(
-                str(model_path), compile=False
+            # Set up session options for optimal CPU performance
+            sess_options = ort.SessionOptions()
+            sess_options.intra_op_num_threads = 2
+            sess_options.inter_op_num_threads = 2
+            sess_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+            sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+            
+            self.model = ort.InferenceSession(str(model_path), sess_options)
+            self.model_name = model_path.name
+            
+            inputs = self.model.get_inputs()
+            self.input_shape = tuple(inputs[0].shape[1:])
+            
+            logger.info(
+                "ONNX Model '%s' loaded — input shape: %s, output classes: %s",
+                self.model_name,
+                self.input_shape,
+                len(self.class_labels),
             )
         except Exception as load_err:
-            logger.warning("Standard load failed (%s), trying legacy loader...", load_err)
-            # Fallback: try loading with custom_object_scope for older models
-            with tf.keras.utils.custom_object_scope({}):
-                self.model = tf.keras.models.load_model(
-                    str(model_path), compile=False
-                )
-        self.model_name = model_path.stem
-        self.input_shape = tuple(self.model.input_shape[1:])
-        logger.info(
-            "Model '%s' loaded — input shape: %s, output classes: %d",
-            self.model_name,
-            self.input_shape,
-            self.model.output_shape[-1],
-        )
+            logger.error("Failed to load ONNX model: %s", load_err)
+            self.model = None
+            return
+
+        # Load weights for NumPy Grad-CAM if available
+        weights_path = self.model_dir / "resnet50_weights.npz"
+        if weights_path.is_file():
+            try:
+                self.weights = np.load(str(weights_path))
+                logger.info("Loaded NumPy Grad-CAM weights from %s", weights_path)
+            except Exception as weights_err:
+                logger.warning("Could not load NumPy Grad-CAM weights: %s", weights_err)
+        else:
+            logger.warning("NumPy Grad-CAM weights not found at %s. Grad-CAM will be disabled.", weights_path)
 
     def _find_best_model(self) -> Optional[Path]:
         """Return the path of the best available model, or None."""
@@ -103,11 +112,10 @@ class ModelService:
             if candidate.is_file():
                 return candidate
 
-        # Fallback: any .h5 or .keras file
-        for pattern in ("*.h5", "*.keras"):
-            found = list(self.model_dir.glob(pattern))
-            if found:
-                return sorted(found)[0]
+        # Fallback: any .onnx file
+        found = list(self.model_dir.glob("*.onnx"))
+        if found:
+            return sorted(found)[0]
 
         return None
 
@@ -117,16 +125,6 @@ class ModelService:
     def preprocess_image(self, image: Image.Image) -> np.ndarray:
         """
         Resize and normalize a PIL image for model input.
-
-        Parameters
-        ----------
-        image : PIL.Image.Image
-            RGB image of any size.
-
-        Returns
-        -------
-        np.ndarray
-            Shape (1, 224, 224, 3) with pixel values in [0, 1].
         """
         image = image.resize(IMAGE_SIZE, Image.Resampling.LANCZOS)
         img_array = np.array(image, dtype=np.float32) / 255.0
@@ -137,23 +135,23 @@ class ModelService:
     # ------------------------------------------------------------------
     def predict(self, image: Image.Image) -> dict:
         """
-        Run inference on a single image.
-
-        Parameters
-        ----------
-        image : PIL.Image.Image
-            The MRI scan to classify.
-
-        Returns
-        -------
-        dict with keys: prediction, confidence, probabilities, gradcam_image
+        Run inference on a single image using ONNX session.
         """
         if self.model is None:
             raise RuntimeError("No model is loaded. Train a model first.")
 
         img_array = self.preprocess_image(image)
-        predictions = self.model.predict(img_array, verbose=0)
-        probs = predictions[0]
+        
+        # Get input and output names
+        input_name = self.model.get_inputs()[0].name
+        output_names = [o.name for o in self.model.get_outputs()]
+        
+        # Run inference
+        outputs = self.model.run(output_names, {input_name: img_array})
+        
+        # Mapping: output 0 is predictions, output 1 is conv outputs (for Grad-CAM)
+        probs_output = outputs[0]
+        probs = probs_output[0]
 
         predicted_idx = int(np.argmax(probs))
         predicted_label = self.class_labels[predicted_idx]
@@ -165,8 +163,11 @@ class ModelService:
             for label, prob in zip(self.class_labels, probs)
         }
 
-        # Generate Grad-CAM heatmap
-        gradcam_b64 = self._generate_gradcam(img_array, predicted_idx)
+        # Generate Grad-CAM heatmap if conv_outputs exist in model outputs
+        gradcam_b64 = None
+        if len(outputs) > 1:
+            conv_outputs = outputs[1]
+            gradcam_b64 = self._generate_gradcam_numpy(img_array, conv_outputs, predicted_idx)
 
         return {
             "prediction": predicted_label,
@@ -176,62 +177,56 @@ class ModelService:
         }
 
     # ------------------------------------------------------------------
-    # Grad-CAM
+    # NumPy-based Grad-CAM
     # ------------------------------------------------------------------
-    def _generate_gradcam(self, img_array: np.ndarray, class_idx: int) -> Optional[str]:
+    def _generate_gradcam_numpy(self, img_array: np.ndarray, conv_outputs: np.ndarray, class_idx: int) -> Optional[str]:
         """
-        Generate a Grad-CAM heatmap overlay and return as base64-encoded PNG.
-
-        Parameters
-        ----------
-        img_array : np.ndarray
-            Preprocessed image array of shape (1, 224, 224, 3).
-        class_idx : int
-            Index of the predicted class.
-
-        Returns
-        -------
-        str or None
-            Base64-encoded PNG image, or None if generation fails.
+        Generate a Grad-CAM heatmap overlay using NumPy backpropagation and return as base64-encoded PNG.
         """
+        if self.weights is None:
+            return None
+
         try:
-            import tensorflow as tf
-            import cv2
+            # Extract weights for backprop
+            w1, b1 = self.weights["w1"], self.weights["b1"]
+            w2, b2 = self.weights["w2"], self.weights["b2"]
 
-            # Find the last convolutional layer
-            last_conv_layer = self._find_last_conv_layer()
-            if last_conv_layer is None:
-                logger.warning("Could not find a convolutional layer for Grad-CAM.")
-                return None
+            # conv_outputs shape: (1, 7, 7, 2048)
+            # GAP is global average pool of conv_outputs
+            gap = np.mean(conv_outputs, axis=(1, 2))  # shape: (1, 2048)
 
-            # Build a model that outputs both the conv layer output and the predictions
-            grad_model = tf.keras.models.Model(
-                inputs=self.model.input,
-                outputs=[last_conv_layer.output, self.model.output],
-            )
+            # First Dense layer forward pass (Relu)
+            z1 = gap @ w1 + b1  # shape: (1, 512)
+            h = np.maximum(z1, 0)  # Relu activation, shape: (1, 512)
 
-            # Compute gradients
-            with tf.GradientTape() as tape:
-                conv_outputs, predictions = grad_model(img_array)
-                loss = predictions[:, class_idx]
+            # Second Dense layer forward pass (Logits / Softmax)
+            # logits = h @ w2 + b2  # shape: (1, 4)
 
-            grads = tape.gradient(loss, conv_outputs)
+            # Compute derivative of predicted logit score with respect to GAP
+            # dy/dlogits is a one-hot vector with 1 at class_idx, 0 elsewhere.
+            # So dy/dh = w2[:, class_idx] (shape: (512,))
+            dy_dh = w2[:, class_idx]
 
-            if grads is None:
-                logger.warning("Grad-CAM: gradients are None.")
-                return None
+            # dy/dz1 = dy/dh * d(Relu(z1))/dz1 = dy/dh * (z1[0] > 0)
+            dy_dz1 = dy_dh * (z1[0] > 0)  # shape: (512,)
 
-            # Pool gradients over spatial dimensions
-            pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
+            # dy/dgap = dy_dz1 @ w1.T
+            dy_dgap = w1 @ dy_dz1  # shape: (2048,)
 
-            # Weight the feature maps
-            conv_outputs = conv_outputs[0]
-            heatmap = conv_outputs @ pooled_grads[..., tf.newaxis]
-            heatmap = tf.squeeze(heatmap)
-            heatmap = tf.maximum(heatmap, 0) / (tf.math.reduce_max(heatmap) + 1e-8)
-            heatmap = heatmap.numpy()
+            # The weights for the last conv layer feature channels is exactly dy_dgap
+            weights = dy_dgap
 
-            # Resize heatmap to image dimensions
+            # Compute weighted combination of conv channels
+            # conv_outputs[0] shape: (7, 7, 2048)
+            heatmap = np.dot(conv_outputs[0], weights)  # shape: (7, 7)
+
+            # Apply Relu to heatmap and normalize
+            heatmap = np.maximum(heatmap, 0)
+            max_val = np.max(heatmap)
+            if max_val > 0:
+                heatmap /= max_val
+
+            # Resize heatmap to target image dimensions
             heatmap = cv2.resize(heatmap, (IMAGE_SIZE[1], IMAGE_SIZE[0]))
 
             # Colorize with JET colormap
@@ -255,17 +250,3 @@ class ModelService:
         except Exception as exc:
             logger.error("Grad-CAM generation failed: %s", exc)
             return None
-
-    def _find_last_conv_layer(self):
-        """Find the last Conv2D layer in the model."""
-        import tensorflow as tf
-
-        for layer in reversed(self.model.layers):
-            if isinstance(layer, tf.keras.layers.Conv2D):
-                return layer
-            # Handle layers inside nested models (e.g., VGG16, ResNet50 base)
-            if hasattr(layer, "layers"):
-                for sub_layer in reversed(layer.layers):
-                    if isinstance(sub_layer, tf.keras.layers.Conv2D):
-                        return sub_layer
-        return None

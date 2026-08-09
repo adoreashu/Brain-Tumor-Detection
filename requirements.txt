@@ -3,10 +3,9 @@ fastapi
 uvicorn[standard]
 python-multipart
 
-# ML - no version pin, installs latest (matches local TF 2.21 used to save the model)
-tensorflow-cpu
+# ONNX Runtime (fast, lightweight, memory efficient model execution)
+onnxruntime
 numpy
-h5py
 
 # Image processing
 pillow
