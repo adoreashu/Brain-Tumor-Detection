@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: brain-tumor-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: PYTHONPATH
+        value: /app
+    healthCheckPath: /api/health

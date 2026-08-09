@@ -63,16 +63,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — allow React dev server
+# CORS — allow local dev + any Vercel deployment
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",   # Vite dev server
-        "http://localhost:3000",   # fallback
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000",
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],  # Allow all origins (Vercel, Render, localhost)
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
