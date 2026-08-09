@@ -22,17 +22,10 @@ logger = logging.getLogger(__name__)
 CLASS_LABELS = ["glioma", "meningioma", "notumor", "pituitary"]
 IMAGE_SIZE = (224, 224)
 
-# Preference order for model loading (best first)
+# Always use ResNet50 — best accuracy (86.7%)
 MODEL_PREFERENCE = [
     "resnet50_best.h5",
     "resnet50_transfer.h5",
-    "vgg16_best.h5",
-    "vgg16_transfer.h5",
-    "custom_best.h5",
-    "custom_cnn.h5",
-    "resnet50_transfer.keras",
-    "vgg16_transfer.keras",
-    "custom_cnn.keras",
 ]
 
 
