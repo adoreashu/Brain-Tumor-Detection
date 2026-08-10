@@ -97,8 +97,7 @@ async def health_check():
     """Health check endpoint."""
     return {
         "status": "healthy",
-        "model_loaded": model_service is not None and model_service.model is not None,
-        "model_name": model_service.model_name if model_service else None,
+        "model_loaded": model_service is not None and (model_service.model1 is not None or model_service.model2 is not None),
     }
 
 
@@ -115,7 +114,7 @@ async def predict(file: UploadFile = File(...)):
     # --- Validate ----------------------------------------------------------
     _validate_upload(file)
 
-    if model_service is None or model_service.model is None:
+    if model_service is None or (model_service.model1 is None and model_service.model2 is None):
         raise HTTPException(status_code=503, detail="Model not loaded. Please try again later.")
 
     # --- Read image --------------------------------------------------------
@@ -157,8 +156,8 @@ async def model_info():
         raise HTTPException(status_code=503, detail="Model not loaded.")
 
     return {
-        "model_name": model_service.model_name,
-        "input_shape": list(model_service.input_shape) if model_service.input_shape else None,
+        "model_name": "Ensemble (MobileNetV2 + EfficientNetB0)",
+        "input_shape": [1, 224, 224, 3],
         "classes": model_service.class_labels,
         "num_classes": len(model_service.class_labels),
     }
