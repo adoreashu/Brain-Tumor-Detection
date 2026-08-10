@@ -1,7 +1,8 @@
 """
-Brain Tumor Detection — Model Inference Service (ONNX Runtime Version)
+Brain Tumor Detection — Model Inference Service (Ensemble ONNX Runtime Version)
 
 Handles model loading, image preprocessing, prediction, and Grad-CAM generation using ONNX Runtime.
+Loads multiple models (if available) and ensembles their probabilities for maximum accuracy.
 Eliminates TensorFlow dependencies for extremely fast and robust production deployments.
 """
 
@@ -24,73 +25,60 @@ logger = logging.getLogger(__name__)
 CLASS_LABELS = ["glioma", "meningioma", "notumor", "pituitary"]
 IMAGE_SIZE = (224, 224)
 
-# We prefer ONNX format for deployment
-MODEL_PREFERENCE = [
-    "resnet50_best.onnx",
-]
-
-
 class ModelService:
     """
     Encapsulates all ML inference logic using ONNX Runtime:
-    - Model loading with fallback discovery
+    - Model loading (Ensemble support: MobileNetV2 + EfficientNetB0)
     - Image preprocessing
-    - Prediction with probabilities
+    - Prediction with ensembled probabilities
     - Custom numpy-based Grad-CAM heatmap generation
     """
 
     def __init__(self, model_dir: Path) -> None:
         self.model_dir = model_dir
-        self.model = None  # Holds the ort.InferenceSession
-        self.model_name: Optional[str] = None
-        self.input_shape: Optional[tuple] = None
+        
+        self.model1 = None  # resnet50_best.onnx (MobileNetV2)
+        self.model2 = None  # efficientnet_best.onnx (EfficientNetB0)
+        
         self.class_labels = CLASS_LABELS
-        self.weights = None  # Loaded dense layer weights for Grad-CAM numpy backprop
+        self.weights = None  # Loaded dense layer weights for Grad-CAM numpy backprop (using model1)
 
     # ------------------------------------------------------------------
     # Model loading
     # ------------------------------------------------------------------
     def load_model(self) -> None:
         """
-        Load the best available trained ONNX model from the models directory.
+        Load the trained ONNX models from the models directory.
         """
-        model_path = self._find_best_model()
+        # Set up session options for optimal CPU performance
+        sess_options = ort.SessionOptions()
+        sess_options.intra_op_num_threads = 2
+        sess_options.inter_op_num_threads = 2
+        sess_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
 
-        if model_path is None:
-            logger.warning(
-                "⚠️  No trained ONNX model found in '%s'. "
-                "The API will start but predictions will fail until a model is trained.",
-                self.model_dir,
-            )
-            return
+        # Load Model 1 (MobileNetV2 / Resnet50)
+        m1_path = self.model_dir / "resnet50_best.onnx"
+        if m1_path.is_file():
+            try:
+                self.model1 = ort.InferenceSession(str(m1_path), sess_options)
+                logger.info("ONNX Model 1 loaded: %s", m1_path.name)
+            except Exception as e:
+                logger.error("Failed to load ONNX Model 1: %s", e)
 
-        logger.info("Loading ONNX model from: %s", model_path)
-        try:
-            # Set up session options for optimal CPU performance
-            sess_options = ort.SessionOptions()
-            sess_options.intra_op_num_threads = 2
-            sess_options.inter_op_num_threads = 2
-            sess_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
-            sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-            
-            self.model = ort.InferenceSession(str(model_path), sess_options)
-            self.model_name = model_path.name
-            
-            inputs = self.model.get_inputs()
-            self.input_shape = tuple(inputs[0].shape[1:])
-            
-            logger.info(
-                "ONNX Model '%s' loaded — input shape: %s, output classes: %s",
-                self.model_name,
-                self.input_shape,
-                len(self.class_labels),
-            )
-        except Exception as load_err:
-            logger.error("Failed to load ONNX model: %s", load_err)
-            self.model = None
-            return
+        # Load Model 2 (EfficientNetB0)
+        m2_path = self.model_dir / "efficientnet_best.onnx"
+        if m2_path.is_file():
+            try:
+                self.model2 = ort.InferenceSession(str(m2_path), sess_options)
+                logger.info("ONNX Model 2 loaded: %s", m2_path.name)
+            except Exception as e:
+                logger.error("Failed to load ONNX Model 2: %s", e)
 
-        # Load weights for NumPy Grad-CAM if available
+        if self.model1 is None and self.model2 is None:
+            logger.warning("⚠️ No trained ONNX models found in '%s'. Predictions will fail.", self.model_dir)
+
+        # Load weights for NumPy Grad-CAM if available (using model 1 weights)
         weights_path = self.model_dir / "resnet50_weights.npz"
         if weights_path.is_file():
             try:
@@ -98,26 +86,6 @@ class ModelService:
                 logger.info("Loaded NumPy Grad-CAM weights from %s", weights_path)
             except Exception as weights_err:
                 logger.warning("Could not load NumPy Grad-CAM weights: %s", weights_err)
-        else:
-            logger.warning("NumPy Grad-CAM weights not found at %s. Grad-CAM will be disabled.", weights_path)
-
-    def _find_best_model(self) -> Optional[Path]:
-        """Return the path of the best available model, or None."""
-        if not self.model_dir.exists():
-            return None
-
-        # Try preference order first
-        for name in MODEL_PREFERENCE:
-            candidate = self.model_dir / name
-            if candidate.is_file():
-                return candidate
-
-        # Fallback: any .onnx file
-        found = list(self.model_dir.glob("*.onnx"))
-        if found:
-            return sorted(found)[0]
-
-        return None
 
     # ------------------------------------------------------------------
     # Image preprocessing
@@ -135,38 +103,47 @@ class ModelService:
     # ------------------------------------------------------------------
     def predict(self, image: Image.Image) -> dict:
         """
-        Run inference on a single image using ONNX session.
+        Run inference on a single image using Ensemble ONNX sessions.
         """
-        if self.model is None:
+        if self.model1 is None and self.model2 is None:
             raise RuntimeError("No model is loaded. Train a model first.")
 
         img_array = self.preprocess_image(image)
         
-        # Get input and output names
-        input_name = self.model.get_inputs()[0].name
-        output_names = [o.name for o in self.model.get_outputs()]
-        
-        # Run inference
-        outputs = self.model.run(output_names, {input_name: img_array})
-        
-        # Mapping: output 0 is predictions, output 1 is conv outputs (for Grad-CAM)
-        probs_output = outputs[0]
-        probs = probs_output[0]
+        all_probs = []
+        outputs_m1 = None
 
-        predicted_idx = int(np.argmax(probs))
+        # Run Model 1
+        if self.model1 is not None:
+            input_name = self.model1.get_inputs()[0].name
+            output_names = [o.name for o in self.model1.get_outputs()]
+            outputs_m1 = self.model1.run(output_names, {input_name: img_array})
+            all_probs.append(outputs_m1[0][0])
+
+        # Run Model 2
+        if self.model2 is not None:
+            input_name = self.model2.get_inputs()[0].name
+            output_names = [o.name for o in self.model2.get_outputs()]
+            outputs_m2 = self.model2.run(output_names, {input_name: img_array})
+            all_probs.append(outputs_m2[0][0])
+
+        # Ensemble Average
+        avg_probs = np.mean(all_probs, axis=0)
+
+        predicted_idx = int(np.argmax(avg_probs))
         predicted_label = self.class_labels[predicted_idx]
-        confidence = float(probs[predicted_idx])
+        confidence = float(avg_probs[predicted_idx])
 
         # Build probabilities dict
         probabilities = {
             label: round(float(prob), 4)
-            for label, prob in zip(self.class_labels, probs)
+            for label, prob in zip(self.class_labels, avg_probs)
         }
 
-        # Generate Grad-CAM heatmap if conv_outputs exist in model outputs
+        # Generate Grad-CAM heatmap using Model 1's features if available
         gradcam_b64 = None
-        if len(outputs) > 1:
-            conv_outputs = outputs[1]
+        if outputs_m1 is not None and len(outputs_m1) > 1:
+            conv_outputs = outputs_m1[1]
             gradcam_b64 = self._generate_gradcam_numpy(img_array, conv_outputs, predicted_idx)
 
         return {
@@ -191,34 +168,28 @@ class ModelService:
             w1, b1 = self.weights["w1"], self.weights["b1"]
             w2, b2 = self.weights["w2"], self.weights["b2"]
 
-            # conv_outputs shape: (1, 7, 7, 2048)
+            # conv_outputs shape: (1, 7, 7, 2048) or similar
             # GAP is global average pool of conv_outputs
-            gap = np.mean(conv_outputs, axis=(1, 2))  # shape: (1, 2048)
+            gap = np.mean(conv_outputs, axis=(1, 2))
 
             # First Dense layer forward pass (Relu)
-            z1 = gap @ w1 + b1  # shape: (1, 512)
-            h = np.maximum(z1, 0)  # Relu activation, shape: (1, 512)
-
-            # Second Dense layer forward pass (Logits / Softmax)
-            # logits = h @ w2 + b2  # shape: (1, 4)
+            z1 = gap @ w1 + b1
+            h = np.maximum(z1, 0)
 
             # Compute derivative of predicted logit score with respect to GAP
-            # dy/dlogits is a one-hot vector with 1 at class_idx, 0 elsewhere.
-            # So dy/dh = w2[:, class_idx] (shape: (512,))
             dy_dh = w2[:, class_idx]
 
             # dy/dz1 = dy/dh * d(Relu(z1))/dz1 = dy/dh * (z1[0] > 0)
-            dy_dz1 = dy_dh * (z1[0] > 0)  # shape: (512,)
+            dy_dz1 = dy_dh * (z1[0] > 0)
 
             # dy/dgap = dy_dz1 @ w1.T
-            dy_dgap = w1 @ dy_dz1  # shape: (2048,)
+            dy_dgap = w1 @ dy_dz1
 
             # The weights for the last conv layer feature channels is exactly dy_dgap
             weights = dy_dgap
 
             # Compute weighted combination of conv channels
-            # conv_outputs[0] shape: (7, 7, 2048)
-            heatmap = np.dot(conv_outputs[0], weights)  # shape: (7, 7)
+            heatmap = np.dot(conv_outputs[0], weights)
 
             # Apply Relu to heatmap and normalize
             heatmap = np.maximum(heatmap, 0)
