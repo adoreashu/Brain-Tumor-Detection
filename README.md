@@ -7,7 +7,7 @@ A production-grade, deep learning-powered medical imaging web application that c
 
 ## 🌐 Live Production Links
 
-* **💻 Interactive Frontend UI:** [https://frontend-five-eta-66.vercel.app](https://frontend-five-eta-66.vercel.app) (Hosted on Vercel)
+* **💻 Interactive Frontend UI:** [https://brain-tumor-detection-pi-nine.vercel.app](https://brain-tumor-detection-pi-nine.vercel.app) (Hosted on Vercel)
 * **⚙️ AI Inference Backend API:** [https://brain-tumor-detection-3raj.onrender.com](https://brain-tumor-detection-3raj.onrender.com) (Hosted on Render)
 
 ---
