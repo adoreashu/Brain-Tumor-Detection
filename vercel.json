@@ -1,0 +1,6 @@
+{
+  "buildCommand": "cd app/frontend && npm install && npm run build",
+  "outputDirectory": "app/frontend/dist",
+  "installCommand": "echo 'Dependencies are installed in the build step'",
+  "framework": "vite"
+}
