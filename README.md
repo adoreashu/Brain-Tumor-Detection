@@ -1,5 +1,4 @@
 # Early Brain Tumor Detections in Human Brain 🧠
-*(Formerly Brain Tumour Detection System by Ashu)*
 
 A production-grade, deep learning-powered medical imaging web application that classifies brain MRI scans into four distinct categories: **Glioma**, **Meningioma**, **Pituitary Tumor**, and **No Tumor**.
 
