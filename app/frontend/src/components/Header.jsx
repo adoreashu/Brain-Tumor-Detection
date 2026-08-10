@@ -9,7 +9,7 @@ const Header = () => {
       <div className="container">
         <Link to="/" className="logo-container">
           <Brain className="logo-icon" color="#00d4aa" />
-          <span>Brain Tumour Detection System by Ashu</span>
+          <span>Early Brain Tumor Detections in Human Brain</span>
         </Link>
         <nav className="nav-links">
           <Link 

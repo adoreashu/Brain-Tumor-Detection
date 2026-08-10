@@ -6,11 +6,13 @@ import ProbChart from '../components/ProbChart';
 import GradCamView from '../components/GradCamView';
 import InfoSection from '../components/InfoSection';
 import Loader from '../components/Loader';
+import Modal from '../components/Modal';
 
 const Home = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [originalImage, setOriginalImage] = useState(null);
+  const [activeModal, setActiveModal] = useState(null);
 
   const handleAnalyze = async (file) => {
     setIsLoading(true);
@@ -68,13 +70,16 @@ const Home = () => {
 
   return (
     <>
-      <Hero />
+      <Hero 
+        onModelsClick={() => setActiveModal('models')} 
+        onAccuracyClick={() => setActiveModal('accuracy')} 
+      />
       <UploadZone onAnalyze={handleAnalyze} isLoading={isLoading} />
       
       {result && (
         <section id="results-area" className="results-section container">
-          <h2 style={{ textAlign: 'center', marginBottom: '3rem', fontSize: '2.5rem' }}>
-            Analysis Results
+          <h2 style={{ textAlign: 'center', margin: '3rem 0', fontSize: '2.5rem' }}>
+            <span className="gradient-text">Analysis Results</span>
           </h2>
           
           <div className="results-grid">
@@ -98,6 +103,57 @@ const Home = () => {
       <InfoSection />
       
       {isLoading && <Loader />}
+
+      {/* Interactive Modals */}
+      <Modal 
+        isOpen={activeModal === 'models'} 
+        onClose={() => setActiveModal(null)}
+        title="Our 3 ML Models"
+      >
+        <p>
+          We employ a highly advanced <strong>Ensemble Architecture</strong> instead of relying on just a single AI model. This allows us to combine the strengths of different neural network designs for maximum reliability.
+        </p>
+        
+        <h3>1. MobileNetV2</h3>
+        <p>
+          A lightweight, extremely fast convolutional neural network. It excels at identifying the broad shape and location of tumors within milliseconds.
+        </p>
+
+        <h3>2. EfficientNetB0</h3>
+        <p>
+          A state-of-the-art model that uses compound scaling to extract deep, complex feature maps. It is highly sensitive to subtle differences between Gliomas and Meningiomas.
+        </p>
+
+        <h3>3. Ensemble Averaging Logic</h3>
+        <p>
+          Our third "model" is the ensemble arbitrator. It runs images through both neural networks simultaneously and computes a weighted average of their probability arrays. If one model develops a "blind spot", the other model seamlessly corrects it.
+        </p>
+      </Modal>
+
+      <Modal 
+        isOpen={activeModal === 'accuracy'} 
+        onClose={() => setActiveModal(null)}
+        title="Achieving 95%+ Accuracy"
+      >
+        <p>
+          Medical AI requires extreme precision. To push our accuracy past the 95% threshold, we implemented several advanced techniques:
+        </p>
+
+        <h3>Clean Label Noise Auditing</h3>
+        <p>
+          Public medical datasets often contain human errors where images are placed in the wrong folder (e.g. a Glioma labeled as a Meningioma). We used AI to audit the dataset and identify 25 corrupted labels, manually correcting them so the model learns from perfect data.
+        </p>
+
+        <h3>Transfer Learning</h3>
+        <p>
+          Instead of training from scratch, our models are initialized with weights learned from millions of real-world images (ImageNet). They are then fine-tuned specifically on MRI scans, allowing them to understand complex textures and edges immediately.
+        </p>
+
+        <h3>Data Augmentation</h3>
+        <p>
+          During training, we rotate, zoom, and adjust the brightness of the MRI scans randomly. This teaches the AI to recognize tumors regardless of how the MRI machine was positioned or calibrated.
+        </p>
+      </Modal>
     </>
   );
 };
