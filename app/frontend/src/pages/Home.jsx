@@ -22,7 +22,8 @@ const Home = () => {
       const formData = new FormData();
       formData.append('file', file);
 
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const apiUrl = import.meta.env.VITE_API_URL || 
+        (window.location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://brain-tumor-detection-3raj.onrender.com');
       const response = await fetch(`${apiUrl}/api/predict`, {
         method: 'POST',
         body: formData,
