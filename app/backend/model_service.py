@@ -37,7 +37,7 @@ class ModelService:
     def __init__(self, model_dir: Path) -> None:
         self.model_dir = model_dir
         
-        self.model1 = None  # resnet50_best.onnx (MobileNetV2)
+        self.model1 = None  # densenet_best.onnx (DenseNet121)
         self.model2 = None  # efficientnet_best.onnx (EfficientNetB0)
         
         self.class_labels = CLASS_LABELS
@@ -57,8 +57,8 @@ class ModelService:
         sess_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
         sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
 
-        # Load Model 1 (MobileNetV2 / Resnet50)
-        m1_path = self.model_dir / "resnet50_best.onnx"
+        # Load Model 1 (DenseNet121)
+        m1_path = self.model_dir / "densenet_best.onnx"
         if m1_path.is_file():
             try:
                 self.model1 = ort.InferenceSession(str(m1_path), sess_options)
@@ -79,7 +79,7 @@ class ModelService:
             logger.warning("⚠️ No trained ONNX models found in '%s'. Predictions will fail.", self.model_dir)
 
         # Load weights for NumPy Grad-CAM if available (using model 1 weights)
-        weights_path = self.model_dir / "resnet50_weights.npz"
+        weights_path = self.model_dir / "densenet_weights.npz"
         if weights_path.is_file():
             try:
                 self.weights = np.load(str(weights_path))
