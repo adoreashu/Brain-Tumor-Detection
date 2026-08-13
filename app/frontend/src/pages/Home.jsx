@@ -109,25 +109,25 @@ const Home = () => {
       <Modal 
         isOpen={activeModal === 'models'} 
         onClose={() => setActiveModal(null)}
-        title="Our 3 ML Models"
+        title="DenseNet121 Architecture"
       >
         <p>
-          We employ a highly advanced <strong>Ensemble Architecture</strong> instead of relying on just a single AI model. This allows us to combine the strengths of different neural network designs for maximum reliability.
+          We employ a highly advanced <strong>DenseNet121</strong> deep learning architecture to power our AI. Unlike traditional models, DenseNets connect each layer to every other layer in a feed-forward fashion.
         </p>
         
-        <h3>1. MobileNetV2</h3>
+        <h3>1. Deep Fine-Tuning</h3>
         <p>
-          A lightweight, extremely fast convolutional neural network. It excels at identifying the broad shape and location of tumors within milliseconds.
+          We unfroze the deepest 40 layers of the DenseNet121 model, allowing the neural network to completely adapt to the specific textural gradients and features of brain MRI scans rather than generic objects.
         </p>
 
-        <h3>2. EfficientNetB0</h3>
+        <h3>2. Mega-Dataset Training</h3>
         <p>
-          A state-of-the-art model that uses compound scaling to extract deep, complex feature maps. It is highly sensitive to subtle differences between Gliomas and Meningiomas.
+          The model was trained on an immense dataset of over 13,000 MRI scans. By merging Kaggle data with the BDNeuro-MRI clinical dataset, we forced the AI to learn genuine tumor structures and eliminated overfitting.
         </p>
 
-        <h3>3. Ensemble Averaging Logic</h3>
+        <h3>3. Explainable AI</h3>
         <p>
-          Our third "model" is the ensemble arbitrator. It runs images through both neural networks simultaneously and computes a weighted average of their probability arrays. If one model develops a "blind spot", the other model seamlessly corrects it.
+          Our custom NumPy Grad-CAM engine extracts activation layers directly from DenseNet121, generating the visual heatmaps that explain exactly what the AI was looking at.
         </p>
       </Modal>
 

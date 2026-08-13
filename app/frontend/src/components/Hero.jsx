@@ -11,15 +11,15 @@ const Hero = ({ onModelsClick, onAccuracyClick }) => {
         
         <div className="hero-stats">
           <button className="clickable-stat" onClick={onModelsClick}>
-            3 ML Models
+            DenseNet121 Model
           </button>
           <span className="stat-divider">•</span>
           <span className="clickable-stat" style={{ cursor: 'default' }}>
-            4 Tumor Classes
+            13,000+ Scans
           </span>
           <span className="stat-divider">•</span>
           <button className="clickable-stat" onClick={onAccuracyClick}>
-            95%+ Accuracy
+            95% Robust Accuracy
           </button>
         </div>
       </div>

@@ -76,7 +76,7 @@ def create_ppt():
     apply_scifi_theme(slide)
     format_title(slide.shapes.title, "The Data Cosmos")
     body_text = (
-        "Trained on a meticulously curated dataset of 7,200 MRI scans.\n"
+        "Trained on a meticulously curated Mega-Dataset of 13,100+ MRI scans.\n"
         "Aggressive real-time data augmentations applied:\n"
         "  - ±20° Rotations\n"
         "  - Spatial shifting and zooming\n"
@@ -90,9 +90,9 @@ def create_ppt():
     apply_scifi_theme(slide)
     format_title(slide.shapes.title, "The Neural Architectures")
     body_text = (
-        "EfficientNetB0 (Fine-Tuned): Deepest 30 layers unfrozen to adapt to MRI textural gradients.\n"
+        "DenseNet121 (Fine-Tuned): Deepest 40 layers unfrozen to adapt to MRI textural gradients.\n"
         "Explainable AI (Grad-CAM): Custom Pure-NumPy gradient mapper reveals exactly what the AI sees.\n"
-        "Multi-Model Ensembling: Parallel inference engines ensure blind-spots are corrected instantly."
+        "Clinical Diversity: Merged multiple datasets to eliminate overfitting."
     )
     format_body(slide.placeholders[1], body_text)
 
@@ -101,9 +101,9 @@ def create_ppt():
     apply_scifi_theme(slide)
     format_title(slide.shapes.title, "The Zenith of Accuracy")
     body_text = (
-        "93% Overall Accuracy achieved after deep fine-tuning.\n"
-        "100% Recall for 'No Tumor' (Zero false negatives for healthy brains).\n"
-        "98% Precision for Gliomas (Extreme confidence in malignant detection).\n"
+        "95% Overall Accuracy achieved after deep fine-tuning.\n"
+        "98% Recall for 'No Tumor' (Prioritizing safe diagnosis).\n"
+        "100% Recall for Pituitary Tumors (Extreme detection confidence).\n"
         "A highly robust, production-ready AI."
     )
     format_body(slide.placeholders[1], body_text)

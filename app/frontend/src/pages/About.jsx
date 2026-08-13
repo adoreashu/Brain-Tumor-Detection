@@ -27,9 +27,9 @@ const About = () => {
             Dataset & Training
           </h2>
           <ul style={{ color: 'var(--color-text-muted)', fontSize: '1.1rem', paddingLeft: '2rem', lineHeight: '1.8' }}>
-            <li>Trained on a comprehensive dataset of over 7,000 Brain MRI Images.</li>
+            <li>Trained on a massive clinical Mega-Dataset of over 13,100 Brain MRI Images.</li>
             <li>Images preprocessed using standard normalization and resizing techniques.</li>
-            <li>Achieved over 95% accuracy on the test set.</li>
+            <li>Achieved a robust 95% accuracy on an unseen test set of 3,381 images.</li>
             <li>Uses data augmentation to ensure model robustness.</li>
           </ul>
         </section>
@@ -52,10 +52,10 @@ const About = () => {
             <div className="glass-card" style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem' }}>
               <h3 style={{ color: 'var(--color-primary)', marginBottom: '1rem' }}>Backend / AI</h3>
               <ul>
-                <li>Python & FastAPI (Planned)</li>
-                <li>TensorFlow / Keras</li>
+                <li>Python & FastAPI</li>
+                <li>ONNX Runtime (DenseNet121)</li>
                 <li>OpenCV</li>
-                <li>NumPy & Pandas</li>
+                <li>NumPy (Grad-CAM)</li>
               </ul>
             </div>
           </div>
