@@ -43,7 +43,7 @@ By aggressively deep fine-tuning a **DenseNet121** architecture (unfreezing the 
 | **Pituitary** | 95% | **100%** | 0.97 |
 
 **Key Highlights:**
-* **Massive Scale:** Achieving 95% accuracy on 13,000+ images from highly diverse sources is proof of a highly robust model immune to the data leakage seen in smaller datasets.
+* **Massive Scale:** Achieving 96% accuracy on 13,000+ images from highly diverse sources is proof of a highly robust model immune to the data leakage seen in smaller datasets.
 * **100% Recall on Pituitary:** Perfect identification rate.
 * **98% Recall on Healthy Brains:** Prioritizing clinical safety, the model rarely generates false negatives for healthy patients.
 
