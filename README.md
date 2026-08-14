@@ -32,8 +32,8 @@ graph TD
 
 The AI model was trained on a massive, clinically diverse **Mega-Dataset of 13,141 MRI brain scans**. This was created by combining standard Kaggle datasets with the BDNeuro-MRI Bangladeshi Clinical Dataset to ensure incredible robust generalization and to prevent overfitting.
 
-### ⭐ Exceptional Model Performance (95% Accuracy)
-By aggressively deep fine-tuning a **DenseNet121** architecture (unfreezing the deepest 40 layers), the model achieved an outstanding **95% Overall Accuracy** on a massive, unseen test set of 3,381 images!
+### ⭐ Exceptional Model Performance (96% Accuracy)
+By aggressively deep fine-tuning a **DenseNet121** architecture (unfreezing the deepest 40 layers), the model achieved an outstanding **96% Overall Accuracy** on a massive, unseen test set of 3,381 images!
 
 | Class | Precision | Recall | F1-Score |
 |-------|-----------|--------|----------|
