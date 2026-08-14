@@ -55,7 +55,8 @@ const Home = () => {
         confidence: data.confidence,
         probabilities: formattedProbs,
         isTumor: isTumor,
-        heatmapImage: data.gradcam_image ? `data:image/png;base64,${data.gradcam_image}` : null
+        heatmapImage: data.gradcam_image ? `data:image/png;base64,${data.gradcam_image}` : null,
+        tumorPercentage: data.tumor_percentage
       });
 
     } catch (error) {
@@ -88,6 +89,7 @@ const Home = () => {
               prediction={result.prediction} 
               confidence={result.confidence} 
               isTumor={result.isTumor} 
+              tumorPercentage={result.tumorPercentage}
             />
             <ProbChart probabilities={result.probabilities} />
           </div>

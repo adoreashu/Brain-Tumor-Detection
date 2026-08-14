@@ -10,7 +10,7 @@ import base64
 import io
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 from PIL import Image
@@ -142,26 +142,30 @@ class ModelService:
 
         # Generate Grad-CAM heatmap using Model 1's features if available
         gradcam_b64 = None
+        tumor_percentage = None
         if outputs_m1 is not None and len(outputs_m1) > 1:
             conv_outputs = outputs_m1[1]
-            gradcam_b64 = self._generate_gradcam_numpy(img_array, conv_outputs, predicted_idx)
+            gradcam_b64, tumor_percentage = self._generate_gradcam_numpy(img_array, conv_outputs, predicted_idx)
 
         return {
             "prediction": predicted_label,
             "confidence": round(confidence, 4),
             "probabilities": probabilities,
             "gradcam_image": gradcam_b64,
+            "tumor_percentage": tumor_percentage,
         }
 
     # ------------------------------------------------------------------
-    # NumPy-based Grad-CAM
+    # NumPy-based Grad-CAM & Tumor Area Calculation
     # ------------------------------------------------------------------
-    def _generate_gradcam_numpy(self, img_array: np.ndarray, conv_outputs: np.ndarray, class_idx: int) -> Optional[str]:
+    def _generate_gradcam_numpy(self, img_array: np.ndarray, conv_outputs: np.ndarray, class_idx: int) -> Tuple[Optional[str], Optional[float]]:
         """
-        Generate a Grad-CAM heatmap overlay using NumPy backpropagation and return as base64-encoded PNG.
+        Generate a Grad-CAM heatmap overlay using NumPy backpropagation.
+        Also estimates the percentage of the brain affected by the tumor.
+        Returns (base64_png, tumor_percentage)
         """
         if self.weights is None:
-            return None
+            return None, None
 
         try:
             # Extract weights for backprop
@@ -210,14 +214,32 @@ class ModelService:
             original = np.uint8(img_array[0] * 255)
             overlay = cv2.addWeighted(original, 0.6, heatmap_colored, 0.4, 0)
 
+            # --- Calculate Affected Percentage ---
+            tumor_percentage = 0.0
+            if self.class_labels[class_idx] != "notumor":
+                # Convert original image to grayscale for brain masking
+                gray = cv2.cvtColor(original, cv2.COLOR_RGB2GRAY)
+                # Use simple threshold to find the brain area (ignoring black background)
+                _, brain_mask = cv2.threshold(gray, 10, 255, cv2.THRESH_BINARY)
+                brain_pixels = np.count_nonzero(brain_mask)
+
+                # Use the heatmap to find the tumor area (confidence > 60%)
+                tumor_mask = heatmap > 0.6
+                tumor_pixels = np.count_nonzero(tumor_mask)
+
+                if brain_pixels > 0:
+                    tumor_percentage = (tumor_pixels / brain_pixels) * 100
+                    tumor_percentage = round(float(tumor_percentage), 2)
+            # ---------------------------------------
+
             # Encode to base64
             overlay_image = Image.fromarray(overlay)
             buffer = io.BytesIO()
             overlay_image.save(buffer, format="PNG")
             b64_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
-            return b64_str
+            return b64_str, tumor_percentage
 
         except Exception as exc:
             logger.error("Grad-CAM generation failed: %s", exc)
-            return None
+            return None, None
