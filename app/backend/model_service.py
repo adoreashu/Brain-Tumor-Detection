@@ -147,13 +147,60 @@ class ModelService:
             conv_outputs = outputs_m1[1]
             gradcam_b64, tumor_percentage = self._generate_gradcam_numpy(img_array, conv_outputs, predicted_idx)
 
+        # Generate feature extraction maps (Edge/Shape and Texture)
+        edge_b64, texture_b64 = self._generate_feature_maps(img_array)
+
         return {
             "prediction": predicted_label,
             "confidence": round(confidence, 4),
             "probabilities": probabilities,
             "gradcam_image": gradcam_b64,
             "tumor_percentage": tumor_percentage,
+            "edge_image": edge_b64,
+            "texture_image": texture_b64,
         }
+
+    # ------------------------------------------------------------------
+    # Feature Extraction (Edges & Textures)
+    # ------------------------------------------------------------------
+    def _generate_feature_maps(self, img_array: np.ndarray) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Generate Edge (Shape) and Texture feature maps using Computer Vision
+        to simulate early and middle neural network layers.
+        """
+        try:
+            original_rgb = np.uint8(img_array[0] * 255)
+            gray = cv2.cvtColor(original_rgb, cv2.COLOR_RGB2GRAY)
+            
+            # 1. Edge Map (simulates early layers)
+            blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+            edges = cv2.Canny(blurred, 50, 150)
+            edge_colored = np.zeros_like(original_rgb)
+            edge_colored[edges > 0] = [0, 255, 255] # Cyan edges
+            
+            # 2. Texture Map (simulates middle layers)
+            laplacian = cv2.Laplacian(gray, cv2.CV_64F)
+            texture_abs = cv2.convertScaleAbs(laplacian)
+            texture_colored = cv2.applyColorMap(texture_abs, cv2.COLORMAP_MAGMA)
+            # Overlay with original for context
+            texture_overlay = cv2.addWeighted(original_rgb, 0.3, texture_colored, 0.7, 0)
+            
+            # Encode Edge
+            edge_img = Image.fromarray(edge_colored)
+            edge_buf = io.BytesIO()
+            edge_img.save(edge_buf, format="PNG")
+            edge_b64 = base64.b64encode(edge_buf.getvalue()).decode("utf-8")
+            
+            # Encode Texture
+            texture_img = Image.fromarray(texture_overlay)
+            texture_buf = io.BytesIO()
+            texture_img.save(texture_buf, format="PNG")
+            texture_b64 = base64.b64encode(texture_buf.getvalue()).decode("utf-8")
+            
+            return edge_b64, texture_b64
+        except Exception as exc:
+            logger.error("Feature map generation failed: %s", exc)
+            return None, None
 
     # ------------------------------------------------------------------
     # NumPy-based Grad-CAM & Tumor Area Calculation

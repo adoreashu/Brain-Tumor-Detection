@@ -4,6 +4,7 @@ import UploadZone from '../components/UploadZone';
 import ResultCard from '../components/ResultCard';
 import ProbChart from '../components/ProbChart';
 import GradCamView from '../components/GradCamView';
+import FeatureExtractionView from '../components/FeatureExtractionView';
 import InfoSection from '../components/InfoSection';
 import Loader from '../components/Loader';
 import Modal from '../components/Modal';
@@ -56,7 +57,9 @@ const Home = () => {
         probabilities: formattedProbs,
         isTumor: isTumor,
         heatmapImage: data.gradcam_image ? `data:image/png;base64,${data.gradcam_image}` : null,
-        tumorPercentage: data.tumor_percentage
+        tumorPercentage: data.tumor_percentage,
+        edgeImage: data.edge_image ? `data:image/png;base64,${data.edge_image}` : null,
+        textureImage: data.texture_image ? `data:image/png;base64,${data.texture_image}` : null
       });
 
     } catch (error) {
@@ -95,9 +98,11 @@ const Home = () => {
           </div>
           
           {result.isTumor && (
-            <GradCamView 
-              originalImage={originalImage} 
-              heatmapImage={result.heatmapImage} 
+            <FeatureExtractionView
+              originalImage={originalImage}
+              edgeImage={result.edgeImage}
+              textureImage={result.textureImage}
+              gradcamImage={result.heatmapImage}
             />
           )}
         </section>
